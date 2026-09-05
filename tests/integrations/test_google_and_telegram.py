@@ -9,7 +9,7 @@ from app.models.calendar_event import CalendarEvent
 from app.models.telegram_alert_delivery import TelegramAlertDelivery
 from app.models.task import Task
 from app.models.approval_request import ApprovalRequest
-from app.services.telegram_bot_listener import TelegramBotListener
+from app.services.telegram_bot_listener import TelegramBotListener, is_briefing_request
 from app.integrations.google_calendar_adapter import GoogleCalendarAdapter
 from app.integrations.gmail_adapter import GmailAdapter
 from app.tools.tool_registry import tool_registry
@@ -159,6 +159,32 @@ async def test_telegram_bot_commands(mock_db):
     # Test /drafts (empty)
     drafts_resp = await listener.handle_command("/drafts", user_id=user.id, db=session)
     assert "No pending approvals" in drafts_resp
+
+
+def test_natural_language_briefing_request_detection():
+    assert is_briefing_request("give me my morning brief") is True
+    assert is_briefing_request("What's my daily briefing?") is True
+    assert is_briefing_request("check my pending tasks") is False
+
+
+@pytest.mark.asyncio
+async def test_natural_language_briefing_request_uses_briefing_service(mock_db, monkeypatch):
+    session, user = mock_db
+    listener = TelegramBotListener()
+
+    async def fake_generate_briefing(db, user_id, send_notification):
+        assert db is session
+        assert user_id == user.id
+        assert send_notification is False
+        return {"formatted_text": "Good morning, Test Student!"}
+
+    monkeypatch.setattr(listener.briefing_service, "generate_briefing", fake_generate_briefing)
+
+    response = await listener.handle_natural_language(
+        "give me my morning brief", user_id=user.id, db=session
+    )
+
+    assert response == "Good morning, Test Student!"
 
 
 @pytest.mark.asyncio

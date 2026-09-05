@@ -323,7 +323,7 @@ JOB POSTING:
 
 CRITICAL INSTRUCTIONS:
 1. Extract the specific role title, company name, required skills, required experience level, key responsibilities, company mission/values language, and application deadline (if present).
-2. Calculate overall_match_score (0.0 to 100.0) reflecting the student's technical fit based on stated skills.
+2. Calculate overall_match_score (0.0 to 100.0) reflecting the student's fit based only on explicit job requirements. If the posting is not a software/technology role, return 0.0 and do not invent technical requirements.
 3. Return ONLY a valid JSON object matching the schema below:
 
 {{

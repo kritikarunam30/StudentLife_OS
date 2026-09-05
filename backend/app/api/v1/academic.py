@@ -22,9 +22,32 @@ from app.core.config import UPLOAD_DIR
 router = APIRouter(prefix="/academic", tags=["academic"])
 
 
+def _unique_records(records: list[Any], key_builder) -> list[Any]:
+    seen: set[tuple[Any, ...]] = set()
+    unique: list[Any] = []
+    for record in records:
+        key = key_builder(record)
+        if key not in seen:
+            seen.add(key)
+            unique.append(record)
+    return unique
+
+
 @router.get("/assignments")
-def assignments(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)) -> Any:
-    return db.query(Assignment).filter(Assignment.user_id == user_id).order_by(Assignment.due_at.asc()).all()
+def assignments(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    records = db.query(Assignment).filter(Assignment.user_id == user_id).order_by(Assignment.due_at.asc(), Assignment.id.asc()).all()
+    unique = _unique_records(records, lambda item: (item.course_name.strip().lower(), item.title.strip().lower(), item.due_at, item.description or ""))
+    return [
+        {
+            "id": item.id,
+            "course_name": item.course_name,
+            "title": item.title,
+            "description": item.description,
+            "due_at": item.due_at,
+            "status": item.status,
+        }
+        for item in unique
+    ]
 
 
 @router.post("/assignments")
@@ -35,8 +58,19 @@ def create_assignment(payload: AssignmentCreate, user_id: int = Depends(get_curr
 
 
 @router.get("/exams")
-def exams(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)) -> Any:
-    return db.query(Exam).filter(Exam.user_id == user_id).order_by(Exam.starts_at.asc()).all()
+def exams(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    records = db.query(Exam).filter(Exam.user_id == user_id).order_by(Exam.starts_at.asc(), Exam.id.asc()).all()
+    unique = _unique_records(records, lambda item: (item.course_name.strip().lower(), item.title.strip().lower(), item.starts_at, item.notes or ""))
+    return [
+        {
+            "id": item.id,
+            "course_name": item.course_name,
+            "title": item.title,
+            "starts_at": item.starts_at,
+            "notes": item.notes,
+        }
+        for item in unique
+    ]
 
 
 @router.post("/exams")
@@ -62,7 +96,9 @@ def study_sessions(user_id: int = Depends(get_current_user_id), db: Session = De
 
 @router.get("/study-plans")
 def study_plans(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)) -> list[dict]:
-    return [{"id": item.id, "title": item.title, "target_date": item.target_date, "plan": item.plan, "status": item.status} for item in db.query(StudyPlan).filter(StudyPlan.user_id == user_id).order_by(StudyPlan.created_at.desc()).all()]
+    records = db.query(StudyPlan).filter(StudyPlan.user_id == user_id).order_by(StudyPlan.created_at.desc(), StudyPlan.id.desc()).all()
+    unique = _unique_records(records, lambda item: (item.title.strip().lower(), item.target_date, item.plan_json, item.status))
+    return [{"id": item.id, "title": item.title, "target_date": item.target_date, "plan": item.plan, "status": item.status} for item in unique]
 
 
 @router.post("/study-plans")

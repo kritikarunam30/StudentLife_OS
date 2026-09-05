@@ -10,7 +10,7 @@ from app.models.student_profile import StudentProfile, User
 from app.models.task import Task
 from app.schemas.job_schemas import JobProcessInput, RegenerateSOPInput, UpdateSOPInput
 from app.services.audit_service import AuditService
-from app.services.dsa_role_requirements import compute_role_readiness
+from app.services.dsa_role_requirements import compute_role_readiness, has_role_context_mismatch, is_technical_job
 from app.services.gemini_service import GeminiService
 
 logger = logging.getLogger(__name__)
@@ -96,6 +96,14 @@ class JobAgentService:
         company = payload.company or parsed_job.company
         role_title = payload.title or parsed_job.role_title
         match_score = parsed_job.overall_match_score
+        context_mismatch = has_role_context_mismatch(
+            role_title=role_title,
+            company=company,
+            job_description=payload.job_text,
+            required_skills=parsed_job.required_skills,
+        )
+        if context_mismatch:
+            match_score = 0.0
 
         # Log parsing step to shared activity_logs
         AuditService.log_user_activity(
@@ -112,7 +120,15 @@ class JobAgentService:
         )
 
         # Step 2: Match role title to DSA requirement tabs and compute readiness
-        readiness_data = compute_role_readiness(db, user_id, role_title)
+        technical_role = is_technical_job(role_title, payload.job_text, parsed_job.required_skills, company)
+        readiness_data = compute_role_readiness(db, user_id, role_title) if technical_role else {
+            "matched_role": "Non-technical Role",
+            "role_match": "not_applicable",
+            "readiness_score": None,
+            "technical_strengths": [],
+            "developing_topics": [],
+            "topic_breakdown": [],
+        }
         matched_role = readiness_data["matched_role"]
         role_match = readiness_data["role_match"]
         readiness_score = readiness_data["readiness_score"]
@@ -161,7 +177,7 @@ class JobAgentService:
                 message=f"Low match score ({match_score}%) < 60% threshold. Discarded {company} - {role_title} without SOP generation.",
                 metadata={"match_score": match_score, "company": company, "role_title": role_title},
             )
-        else:
+        elif technical_role:
             # Case B: High readiness (>= 75%) or Medium readiness (60% - 74%)
             is_high = readiness_score >= 75.0
             job_context = {
@@ -241,6 +257,7 @@ class JobAgentService:
             readiness_score=readiness_score,
             role_match=role_match,
             matched_role=matched_role,
+            required_skills=json.dumps(parsed_job.required_skills),
             technical_strengths=json.dumps(strengths),
             developing_topics=json.dumps(developing),
             sop_draft=sop_draft_text,
@@ -308,7 +325,15 @@ class JobAgentService:
         }
 
         # Retrieve or compute readiness
-        readiness_data = compute_role_readiness(db, user_id, job.title)
+        technical_role = is_technical_job(job.title, job.description, json.loads(job.required_skills or "[]"))
+        readiness_data = compute_role_readiness(db, user_id, job.title) if technical_role else {
+            "matched_role": "Non-technical Role",
+            "role_match": "not_applicable",
+            "readiness_score": None,
+            "technical_strengths": [],
+            "developing_topics": [],
+            "topic_breakdown": [],
+        }
 
         # Parse stored preferences and update
         stored_prefs = {}
@@ -332,7 +357,7 @@ class JobAgentService:
         job_context = {
             "company": job.company,
             "role_title": job.title,
-            "required_skills": json.loads(job.technical_strengths or "[]") + json.loads(job.developing_topics or "[]"),
+            "required_skills": json.loads(job.required_skills or "[]"),
             "key_responsibilities": resp_list,
             "company_values_and_mission": job.company_values or "",
         }
@@ -391,10 +416,13 @@ class JobAgentService:
         return job
 
     def list_jobs(self, db: Session, user_id: int) -> list[ActiveJobPipeline]:
-        """List all active job postings sorted by match score and creation date."""
+        """List non-discarded job postings sorted by match score and creation date."""
         return (
             db.query(ActiveJobPipeline)
-            .filter(ActiveJobPipeline.user_id == user_id)
+            .filter(
+                ActiveJobPipeline.user_id == user_id,
+                ActiveJobPipeline.sop_status != "discarded",
+            )
             .order_by(ActiveJobPipeline.match_score.desc().nullslast(), ActiveJobPipeline.id.desc())
             .all()
         )

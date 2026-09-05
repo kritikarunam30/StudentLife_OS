@@ -53,6 +53,7 @@ class ActiveJobResponse(BaseModel):
     readiness_score: float | None = None
     role_match: str | None = "inferred"
     matched_role: str | None = None
+    required_skills: list[str] = Field(default_factory=list)
     technical_strengths: list[str] = Field(default_factory=list)
     developing_topics: list[str] = Field(default_factory=list)
     sop_draft: str | None = None

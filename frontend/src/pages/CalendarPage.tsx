@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { api, type CalendarEvent } from '../api/client';
 
-type Props = { events: CalendarEvent[]; onChanged: (events: CalendarEvent[]) => void };
+type Props = { events: CalendarEvent[]; onChanged: () => void };
 const emptyForm = { title: '', starts_at: '', ends_at: '', event_type: 'event', location: '' };
 
 function toPayload(form: typeof emptyForm) {
@@ -18,7 +18,7 @@ export default function CalendarPage({ events, onChanged }: Props) {
       const payload = toPayload(form);
       const conflict = await api.checkCalendarConflicts(payload);
       if (conflict.has_conflict) { setError(conflict.reasons.join('; ')); return; }
-      onChanged([...events, await api.createCalendarEvent(payload)]); setForm(emptyForm);
+      await api.createCalendarEvent(payload); await onChanged(); setForm(emptyForm);
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Unable to schedule event.'); }
   }
 

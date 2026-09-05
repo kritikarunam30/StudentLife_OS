@@ -73,7 +73,9 @@ export default function OpportunitiesPage() {
         specific_points: specificPoints.trim() || undefined,
       });
 
-      setProcessStatusNotice(`Successfully analyzed ${createdJob.company}! SOP Status: ${createdJob.sop_status.toUpperCase()}`);
+      if (createdJob.sop_status !== 'discarded') {
+        setProcessStatusNotice(`Successfully analyzed ${createdJob.company}! SOP Status: ${createdJob.sop_status.toUpperCase()}`);
+      }
       fetchPipeline();
       fetchActivities();
       setIsModalOpen(false);
@@ -81,48 +83,13 @@ export default function OpportunitiesPage() {
       setCompanyInput('');
       setTitleInput('');
       setSpecificPoints('');
-      setExpandedSOPId(createdJob.id);
+      if (createdJob.sop_status !== 'discarded') {
+        setExpandedSOPId(createdJob.id);
+      }
     } catch (err: any) {
       setProcessStatusNotice(`Error processing job: ${err?.message || 'Failed to analyze'}`);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleQuickPreFill = (preset: 'deeptech' | 'microsoft' | 'razorpay') => {
-    if (preset === 'deeptech') {
-      setCompanyInput('DeepTech AI');
-      setTitleInput('Machine Learning Engineer Intern');
-      setJobText(
-        'DeepTech AI is seeking a Machine Learning Engineer Intern.\n' +
-        'Responsibilities: Develop and optimize deep learning model training pipelines, implement algorithmic solutions for high-throughput tensor processing, and collaborate on tree-based model architectures.\n' +
-        'Required skills: Python, PyTorch, Data Structures & Algorithms, Trees, Arrays & Hashing, Linear Algebra.\n' +
-        'Mission: Advancing human-centered AI systems.'
-      );
-      setTonePreference('formal');
-      setSpecificPoints('Highlight LeetCode problem solving discipline in Trees and backend FastAPI experience.');
-    } else if (preset === 'microsoft') {
-      setCompanyInput('Microsoft');
-      setTitleInput('Software Development Engineer (SDE) Intern');
-      setJobText(
-        'Microsoft Platform Engineering is hiring an SDE Intern.\n' +
-        'Responsibilities: Build highly scalable distributed platform features, write robust production code, and design performant algorithms.\n' +
-        'Required skills: Python, C++, Data Structures & Algorithms, Two Pointers, Trees, Dynamic Programming, System Design.\n' +
-        'Mission: Empower every person and every organization on the planet to achieve more.'
-      );
-      setTonePreference('formal');
-      setSpecificPoints('Emphasize strong academic foundation in algorithms and clean code practices.');
-    } else {
-      setCompanyInput('Razorpay');
-      setTitleInput('Backend Developer Intern');
-      setJobText(
-        'Razorpay Payments team is hiring a Backend Developer Intern.\n' +
-        'Responsibilities: Design scalable APIs, handle high concurrency transaction processing, and maintain resilient data pipelines.\n' +
-        'Required skills: Python, FastAPI, SQL, Arrays & Hashing, Design / Linked List, Two Pointers.\n' +
-        'Mission: Powering seamless financial infrastructure for digital commerce.'
-      );
-      setTonePreference('conversational');
-      setSpecificPoints('Mention enthusiasm for payment gateways and high-reliability software.');
     }
   };
 
@@ -166,8 +133,9 @@ export default function OpportunitiesPage() {
 
   const totalTracked = pipelineJobs.length;
   const totalSOPs = pipelineJobs.filter((j) => j.sop_draft && j.sop_status !== 'discarded').length;
-  const avgReadiness = totalTracked > 0
-    ? Math.round(pipelineJobs.reduce((acc, j) => acc + (j.readiness_score || 0), 0) / totalTracked)
+  const technicalJobs = pipelineJobs.filter((j) => j.readiness_score != null);
+  const avgReadiness = technicalJobs.length > 0
+    ? Math.round(technicalJobs.reduce((acc, j) => acc + (j.readiness_score || 0), 0) / technicalJobs.length)
     : 0;
 
   return (
@@ -321,10 +289,24 @@ export default function OpportunitiesPage() {
                         <div style={{ textAlign: 'right', borderLeft: '1px solid #283440', paddingLeft: '12px' }}>
                           <span style={{ fontSize: '0.75rem', color: '#82909d', display: 'block' }}>DSA Readiness</span>
                           <strong style={{ fontSize: '1.1rem', color: (job.readiness_score || 0) >= 75 ? '#67d391' : '#f2b84b', fontFamily: 'Space Mono' }}>
-                            {job.readiness_score || 0}%
+                            {job.readiness_score == null ? 'N/A' : `${job.readiness_score}%`}
                           </strong>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Requirements are sourced from this same persisted job record. */}
+                    <div style={{ margin: '14px 0 0', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#82909d' }}>Job Requirements:</span>
+                      {job.required_skills.length > 0 ? (
+                        job.required_skills.map((skill, idx) => (
+                          <span key={idx} style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(242, 184, 75, 0.12)', color: '#f2b84b' }}>
+                            {skill}
+                          </span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: '#82909d' }}>Not applicable</span>
+                      )}
                     </div>
 
                     {/* Strengths & Weaknesses Breakdown */}
@@ -423,7 +405,7 @@ export default function OpportunitiesPage() {
                       <div style={{ marginTop: '16px', background: '#0e141a', padding: '16px', borderRadius: '6px', border: '1px solid #23303d' }}>
                         {isEditing ? (
                           <div>
-                            <textarea
+                              <textarea
                               value={editedSOPText}
                               onChange={(e) => setEditedSOPText(e.target.value)}
                               rows={12}
@@ -435,8 +417,8 @@ export default function OpportunitiesPage() {
                                 borderRadius: '4px',
                                 padding: '12px',
                                 fontFamily: 'inherit',
-                                fontSize: '0.9rem',
-                                lineHeight: '1.6',
+                                fontSize: '1rem',
+                                lineHeight: '1.8',
                               }}
                             />
                             <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
@@ -449,7 +431,7 @@ export default function OpportunitiesPage() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ whiteSpace: 'pre-line', fontSize: '0.9rem', lineHeight: '1.7', color: '#cbd5e1' }}>
+                          <div className="sop-draft" style={{ whiteSpace: 'pre-line', color: '#cbd5e1' }}>
                             {job.sop_draft}
                           </div>
                         )}
@@ -667,39 +649,6 @@ export default function OpportunitiesPage() {
               >
                 ✕
               </button>
-            </div>
-
-            {/* Quick Demo Pre-Fills */}
-            <div style={{ background: '#10161d', padding: '12px', borderRadius: '6px', marginBottom: '16px', border: '1px solid #222d38' }}>
-              <span style={{ fontSize: '0.75rem', color: '#82909d', display: 'block', marginBottom: '8px' }}>
-                🚀 Quick Live Demo Presets:
-              </span>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => handleQuickPreFill('deeptech')}
-                  style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-                >
-                  🤖 DeepTech AI (ML Engineer)
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => handleQuickPreFill('microsoft')}
-                  style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-                >
-                  💻 Microsoft (SDE Intern)
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => handleQuickPreFill('razorpay')}
-                  style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-                >
-                  ⚡ Razorpay (Backend Intern)
-                </button>
-              </div>
             </div>
 
             <form onSubmit={handleProcessJob} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

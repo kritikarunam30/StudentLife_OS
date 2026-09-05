@@ -227,6 +227,7 @@ def _format_job_response(item: Any) -> dict[str, Any]:
         "readiness_score": item.readiness_score,
         "role_match": item.role_match,
         "matched_role": item.matched_role,
+        "required_skills": json.loads(item.required_skills) if item.required_skills else [],
         "technical_strengths": json.loads(item.technical_strengths) if item.technical_strengths else [],
         "developing_topics": json.loads(item.developing_topics) if item.developing_topics else [],
         "sop_draft": item.sop_draft,
@@ -239,4 +240,4 @@ def _format_job_response(item: Any) -> dict[str, Any]:
         "deadline": item.deadline,
         "created_at": item.created_at.isoformat() if item.created_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-    }
+    }

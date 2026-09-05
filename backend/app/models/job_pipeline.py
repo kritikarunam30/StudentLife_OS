@@ -23,6 +23,7 @@ class ActiveJobPipeline(Base):
     matched_role: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # DSA Explainability Breakdown
+    required_skills: Mapped[str | None] = mapped_column(Text, nullable=True)
     technical_strengths: Mapped[str | None] = mapped_column(Text, nullable=True)
     developing_topics: Mapped[str | None] = mapped_column(Text, nullable=True)
 

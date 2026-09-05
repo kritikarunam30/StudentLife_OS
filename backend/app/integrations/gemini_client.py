@@ -21,9 +21,7 @@ class GeminiClient:
     def __init__(self, settings: Settings | None = None, is_mock: bool | None = None) -> None:
         self.settings = settings or get_settings()
         self.is_mock = is_mock if is_mock is not None else (
-            self.settings.gemini_api_key in ("changeme", "your_gemini_api_key_here", "", None)
-            or str(self.settings.gemini_api_key).startswith("your_gemini_api_key")
-            or getattr(self.settings, "app_env", "") == "test"
+            getattr(self.settings, "app_env", "") == "test"
             or "pytest" in sys.modules
         )
         self.api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.settings.gemini_model}:generateContent"
@@ -84,8 +82,7 @@ class GeminiClient:
 
                 # Handle rate limiting or server errors with backoff
                 if response.status_code == 429:
-                    logger.warning("Gemini API daily quota exceeded (HTTP 429); gracefully falling back to resilient mock generation.")
-                    return self._generate_mock_response(prompt)
+                    raise GeminiAPIError("Gemini API quota exceeded")
 
                 if response.status_code in (500, 502, 503, 504):
                     logger.warning(
@@ -96,8 +93,7 @@ class GeminiClient:
                         backoff,
                     )
                     if attempt == max_retries:
-                        logger.warning("Gemini API server errors exhausted retries; falling back to mock response.")
-                        return self._generate_mock_response(prompt)
+                        raise GeminiAPIError("Gemini API unavailable after retries")
                     await asyncio.sleep(backoff)
                     backoff *= 2
                 else:
@@ -113,8 +109,7 @@ class GeminiClient:
                     exc,
                 )
                 if attempt == max_retries:
-                    logger.warning("Gemini API connection error exhausted retries; falling back to mock response.")
-                    return self._generate_mock_response(prompt)
+                    raise GeminiAPIError("Gemini API connection failed after retries")
                 await asyncio.sleep(backoff)
                 backoff *= 2
 
@@ -261,8 +256,6 @@ class GeminiClient:
                 ],
             })
 
-<<<<<<< HEAD
-=======
         if "morning briefing" in prompt_lower:
             import re
             # Extract real tasks from prompt if available
@@ -313,7 +306,6 @@ class GeminiClient:
                 "recommended_recovery_action": None,
             })
 
->>>>>>> 3bbb5bababa7202e08d080ffcbd5dd12cf5dca3a
         if "classify its trust level" in prompt_lower or "classification" in prompt_lower:
             return json.dumps({
                 "trust_level": "untrusted",
@@ -392,6 +384,32 @@ class GeminiClient:
                 })
 
         if "parse job posting" in prompt_lower or "extract job details" in prompt_lower or "role_title" in prompt_lower:
+            import re
+            posting_match = re.search(r"<job_description>\s*(.*?)\s*</job_description>", prompt, re.DOTALL | re.IGNORECASE)
+            posting = posting_match.group(1).strip() if posting_match else ""
+            posting_lower = posting.lower()
+            if any(term in posting_lower for term in ("chef", "culinary", "restaurant", "kitchen", "marketing", "finance", "accountant")):
+                return json.dumps({
+                    "role_title": "Executive Chef" if "chef" in posting_lower else "Non-technical Role",
+                    "company": "Le Petit Bistro" if "bistro" in posting_lower else "Unknown Company",
+                    "required_skills": [],
+                    "required_experience_level": "Not specified",
+                    "key_responsibilities": [posting[:240]],
+                    "company_values_and_mission": "",
+                    "application_deadline": None,
+                    "overall_match_score": 0.0,
+                })
+            if "fintech corp" in posting_lower or "software engineer" in posting_lower:
+                return json.dumps({
+                    "role_title": "Software Engineer Intern",
+                    "company": "FinTech Corp",
+                    "required_skills": ["Python", "SQL", "APIs", "Algorithms"],
+                    "required_experience_level": "Internship / Entry Level",
+                    "key_responsibilities": ["Build production software", "Design and maintain APIs"],
+                    "company_values_and_mission": "Building reliable financial technology.",
+                    "application_deadline": None,
+                    "overall_match_score": 85.0,
+                })
             return json.dumps({
                 "role_title": "Machine Learning Engineer Intern",
                 "company": "DeepTech AI",
@@ -408,12 +426,16 @@ class GeminiClient:
             })
 
         if "statement of purpose" in prompt_lower or "sop draft" in prompt_lower or "sop_text" in prompt_lower:
+            import re
+            company_match = re.search(r"- Company:\s*([^\n]+)", prompt, re.IGNORECASE)
+            role_match = re.search(r"- Role:\s*([^\n]+)", prompt, re.IGNORECASE)
+            sop_company = company_match.group(1).strip() if company_match else "the Company"
+            sop_role = role_match.group(1).strip() if role_match else "the role"
             return json.dumps({
                 "sop_text": (
-                    "Dear Hiring Team at DeepTech AI,\n\n"
-                    "I am writing to express my enthusiastic interest in the Machine Learning Engineer Intern role. As a 3rd-year Computer Science student at University Engineering with an 8.8 CGPA, my academic foundation in algorithms and software engineering directly aligns with DeepTech AI's mission of building transparent, human-centered artificial intelligence.\n\n"
-                    "Through disciplined technical practice, I have established strong foundations in Arrays & Hashing and Trees, regularly solving complex algorithmic challenges on LeetCode. In my coursework and hands-on projects, I have extensively utilized Python and FastAPI to engineer scalable backend services, and I actively apply rigorous problem-solving patterns to model optimization. Furthermore, I am actively expanding my practical proficiency in Dynamic Programming and distributed pipelines to ensure continuous mastery across all engineering dimensions.\n\n"
-                    "DeepTech AI's focus on innovative model architectures resonates strongly with my long-term goal of engineering reliable, high-performance systems. I welcome the opportunity to contribute my technical rigor, proactive curiosity, and strong foundational discipline to your engineering team.\n\n"
+                    f"Dear Hiring Team at {sop_company},\n\n"
+                    f"I am writing to express my interest in the {sop_role} role at {sop_company}. My academic foundation and verified skills provide a grounded starting point for contributing to the responsibilities described in this posting.\n\n"
+                    f"The opportunity to contribute to {sop_company}'s work is aligned with my goals, and I would welcome the chance to bring disciplined problem solving and a learning mindset to the {sop_role} team.\n\n"
                     "Sincerely,\nKriti Karunam"
                 ),
                 "tone": "confident_achievement",

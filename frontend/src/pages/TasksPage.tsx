@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { api, type Task } from '../api/client';
 
-type Props = { tasks: Task[]; onChanged: (tasks: Task[]) => void };
+type Props = { tasks: Task[]; onChanged: () => void };
 const emptyForm = { title: '', deadline: '', priority: 'medium', category: '', estimated_effort_hours: '', description: '' };
 
 export default function TasksPage({ tasks, onChanged }: Props) {
@@ -12,12 +12,12 @@ export default function TasksPage({ tasks, onChanged }: Props) {
     event.preventDefault(); setError(null);
     try {
       const task = await api.createTask({ ...form, deadline: form.deadline ? new Date(form.deadline).toISOString() : null, category: form.category || null, description: form.description || null, estimated_effort_hours: form.estimated_effort_hours ? Number(form.estimated_effort_hours) : null, source: 'manual', status: 'pending', is_confirmed_deadline: true });
-      onChanged([...tasks, task]); setForm(emptyForm);
+      await onChanged(); setForm(emptyForm);
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Unable to create task.'); }
   }
 
   async function completeTask(task: Task) {
-    try { const updated = await api.updateTask(task.id, { status: 'completed' }); onChanged(tasks.map((item) => item.id === updated.id ? updated : item)); }
+    try { await api.updateTask(task.id, { status: 'completed' }); await onChanged(); }
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Unable to update task.'); }
   }
 

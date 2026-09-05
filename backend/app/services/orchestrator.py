@@ -682,7 +682,6 @@ class MultiAgentOrchestrator:
                 from app.models.opportunity import Opportunity
                 from app.models.application import Application
                 from app.models.job_dsa_plan import JobDSAPlanProblem
-                from app.services.dsa_service import DEFAULT_JOB_PLANS
                 from app.services.dsa_role_requirements import compute_role_readiness
 
                 company = params.get("company") or params.get("company_name")
@@ -805,26 +804,6 @@ class MultiAgentOrchestrator:
                     existing_app.status = "interview"
                     db.commit()
 
-                # Ensure company-specific DSA plan problems exist for this application
-                existing_plans = db.query(JobDSAPlanProblem).filter(JobDSAPlanProblem.application_id == existing_app.id).all()
-                if not existing_plans:
-                    company_key = "Google"
-                    for key in DEFAULT_JOB_PLANS:
-                        if key.lower() in company.lower():
-                            company_key = key
-                            break
-                    plan_items = DEFAULT_JOB_PLANS.get(company_key, DEFAULT_JOB_PLANS["Google"])
-                    for item in plan_items:
-                        db.add(JobDSAPlanProblem(
-                            application_id=existing_app.id,
-                            company=company,
-                            title=item["title"],
-                            title_slug=item["title_slug"],
-                            topic=item["topic"],
-                            difficulty=item["difficulty"],
-                            notes=f"Target problem for {company} technical interview",
-                        ))
-                    db.commit()
                 result["application_id"] = existing_app.id
 
                 # Queue a dedicated DSA preparation task for the interview's weak topic

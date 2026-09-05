@@ -14,6 +14,7 @@ export type Approval = { id: number; action_type: string; description: string; m
 export type Assignment = { id: number; course_name: string; title: string; description: string | null; due_at: string; status: string };
 export type Exam = { id: number; course_name: string; title: string; starts_at: string; notes: string | null };
 export type StudySession = { id: number; topic: string; task_id: number | null; planned_start: string; planned_end: string; actual_start: string | null; actual_end: string | null; status: string };
+export type StudyPlan = { id: number; title: string; target_date: string | null; plan: Record<string, unknown>; status: string };
 export type Opportunity = { id: number; title: string; company: string; description: string; required_skills: string | null; match_score: number | null; source: string };
 export type DSAProgress = {
   username?: string;
@@ -118,6 +119,7 @@ export type ActiveJobPipelineItem = {
   readiness_score: number | null;
   role_match: string | null;
   matched_role: string | null;
+  required_skills: string[];
   technical_strengths: string[];
   developing_topics: string[];
   sop_draft: string | null;
@@ -156,6 +158,7 @@ export const api = {
   reject: (id: number) => request<Approval>(`/approvals/${id}/reject`, { method: 'PUT', body: '{}' }),
   getAssignments: () => request<Assignment[]>('/academic/assignments'),
   getExams: () => request<Exam[]>('/academic/exams'),
+  getStudyPlans: () => request<StudyPlan[]>('/academic/study-plans'),
   getStudySessions: () => request<StudySession[]>('/academic/study-sessions'),
   getOpportunities: () => request<Opportunity[]>('/opportunities'),
   getDsa: () => request<DSAProgress>('/dsa'),
@@ -179,4 +182,4 @@ export const api = {
   previewInbox: (content: string, source_type = 'email') => request<InboxProcessResponse>('/inbox/preview', { method: 'POST', body: JSON.stringify({ content, source_type }) }),
   generateBriefing: (send_notification = false, chat_id?: string) => request<MorningBriefingResponse>('/workflows/morning-briefing', { method: 'POST', body: JSON.stringify({ send_notification, chat_id }) }),
   getNotifications: () => request<Array<{ id: number; type: string; message: string; metadata: string | null; created_at: string }>>('/notifications'),
-};
+};

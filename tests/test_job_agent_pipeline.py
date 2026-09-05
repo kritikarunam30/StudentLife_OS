@@ -16,6 +16,8 @@ from app.services.dsa_role_requirements import (
     ROLE_REQUIREMENTS_TABS,
     compute_role_readiness,
     get_student_topic_confidence,
+    has_role_context_mismatch,
+    is_technical_job,
     match_role_tab,
 )
 from app.services.job_agent_service import JobAgentService
@@ -102,6 +104,20 @@ def test_dsa_role_matching():
     role, match_type, topics = match_role_tab("Quantum Cryptography Specialist")
     assert role == "General Tech Role"
     assert match_type == "inferred"
+
+    assert has_role_context_mismatch(
+        "Software Engineer Intern",
+        "Chef Restaurant",
+        "Seeking an intern for front-of-house and kitchen operations.",
+    )
+    assert not has_role_context_mismatch(
+        "Software Engineer Intern",
+        "Chef Technologies",
+        "Build Python APIs and maintain SQL databases.",
+    )
+    assert not is_technical_job("Executive Chef", "Run kitchen operations and manage restaurant staff.")
+    assert not is_technical_job("Marketing Manager", "Own campaigns, brand strategy, and social media.")
+    assert is_technical_job("Software Engineer Intern", "Build Python APIs and maintain SQL databases.")
 
 
 def test_topic_confidence_and_readiness_calculation(db_session: Session):
@@ -218,6 +234,39 @@ async def test_job_pipeline_low_match_discard(db_session: Session):
     job = await service.process_job_posting(db_session, 1, payload)
     # The job was processed
     assert job.company is not None
+    assert job.matched_role == "Non-technical Role"
+    assert job.role_match == "not_applicable"
+    assert job.readiness_score is None
+    assert job.technical_strengths == "[]"
+    assert job.developing_topics == "[]"
+    assert job.sop_status == "discarded"
+    assert job not in service.list_jobs(db_session, 1)
+
+
+@pytest.mark.asyncio
+async def test_technical_and_nontechnical_jobs_keep_independent_records(db_session: Session):
+    service = JobAgentService()
+    software_job = await service.process_job_posting(db_session, 1, JobProcessInput(
+        job_text="FinTech Corp is hiring a Software Engineer Intern. Requirements: Python, SQL, APIs, and algorithms.",
+        company="FinTech Corp", title="Software Engineer Intern",
+    ))
+    chef_job = await service.process_job_posting(db_session, 1, JobProcessInput(
+        job_text="Le Petit Bistro is hiring an Executive Chef. Lead kitchen operations, menu planning, and culinary staff.",
+        company="Le Petit Bistro", title="Executive Chef",
+    ))
+
+    assert software_job.company == "FinTech Corp"
+    assert software_job.title == "Software Engineer Intern"
+    assert software_job.matched_role == "Software Engineer"
+    assert software_job.readiness_score is not None
+    assert chef_job.company == "Le Petit Bistro"
+    assert chef_job.title == "Executive Chef"
+    assert chef_job.matched_role == "Non-technical Role"
+    assert chef_job.readiness_score is None
+    assert chef_job.technical_strengths == "[]"
+    assert chef_job.developing_topics == "[]"
+    assert chef_job.sop_status == "discarded"
+    assert "FinTech Corp" not in (chef_job.sop_draft or "")
 
 
 def test_job_pipeline_api_endpoints(client: TestClient, db_session: Session):

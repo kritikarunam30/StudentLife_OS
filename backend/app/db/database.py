@@ -89,6 +89,7 @@ def init_db() -> None:
 			if inspect(connection).has_table("active_job_pipeline"):
 				job_columns = {column["name"] for column in inspect(connection).get_columns("active_job_pipeline")}
 				for column, column_type in {
+					"required_skills": "TEXT",
 					"match_score": "FLOAT",
 					"readiness_score": "FLOAT",
 					"role_match": "VARCHAR(50)",

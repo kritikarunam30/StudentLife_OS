@@ -109,7 +109,7 @@ export default function DSAPage() {
               <div>
                 <span className="eyebrow" style={{ fontSize: '0.7rem' }}>Connected Profile</span>
                 <h3 style={{ margin: '4px 0 0', fontSize: '1.2rem', color: '#fff' }}>
-                  @{dsaData?.username || 'kriti30_'}
+                  {dsaData?.username ? `@${dsaData.username}` : 'No LeetCode account connected'}
                 </h3>
               </div>
               <div style={{ display: 'flex', gap: '24px', textTransform: 'uppercase', fontSize: '0.75rem', color: '#82909d' }}>
@@ -126,7 +126,7 @@ export default function DSAPage() {
                 <div>
                   <span style={{ display: 'block', color: '#a9b5c0' }}>Last Synced</span>
                   <strong style={{ fontSize: '0.85rem', color: '#67d391' }}>
-                    {dsaData?.last_polled_at ? new Date(dsaData.last_polled_at).toLocaleTimeString() : 'Just now'}
+                    {dsaData?.last_polled_at ? new Date(dsaData.last_polled_at).toLocaleTimeString() : 'Not synced'}
                   </strong>
                 </div>
               </div>
@@ -175,7 +175,7 @@ export default function DSAPage() {
             <div className="card">
               <h2>Next Recommendation</h2>
               <p style={{ margin: '14px 0', lineHeight: '1.4', color: '#e9edf5' }}>
-                {dsaData?.weak_topics?.length ? `Focus on practicing ${dsaData.weak_topics[0]}.` : 'Keep up your current practice rhythm!'}
+                {dsaData?.weak_topics?.length ? `Focus on practicing ${dsaData.weak_topics[0]}.` : 'No recommendations yet.'}
               </p>
               {dsaData?.weak_topics && dsaData.weak_topics.length > 0 ? (
                 <>

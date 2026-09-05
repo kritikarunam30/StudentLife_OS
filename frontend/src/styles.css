@@ -32,4 +32,5 @@ nav { display: grid; gap: 8px; }.nav-link { padding: 11px 12px; border: 0; borde
 .btn-primary { background: #f2b84b; color: #101820; }
 .btn-secondary { background: #263442; color: #e9edf5; border: 1px solid #3b4d5e; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sop-draft { font-size: 1rem; line-height: 1.8; letter-spacing: 0; }
 @media (max-width: 720px) { .app-frame { display: block; }.sidebar { width: 100%; padding: 18px; border-right: 0; border-bottom: 1px solid #26313b; }.brand-copy { margin: 10px 0 18px; }.sidebar-footer { display: none; }nav { display: flex; }.nav-link { flex: 1; }.app-shell { padding: 34px 18px 52px; }.topbar { margin-bottom: 38px; }.grid { grid-template-columns: 1fr; }.settings-panel dl { grid-template-columns: 1fr; }.profile-form, .task-form { grid-template-columns: 1fr; }.profile-form .wide, .task-form .wide { grid-column: auto; }.task-row, .event-row { align-items: flex-start; } }

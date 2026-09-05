@@ -65,7 +65,7 @@ class LeetCodeWatcherService:
         profile = db.query(StudentProfile).filter(StudentProfile.user_id == user_id).first()
         if profile and profile.leetcode_username:
             return profile.leetcode_username
-        return self.settings.leetcode_username or "leetcode_demo"
+        return self.settings.leetcode_username or ""
 
     async def check_user_leetcode_updates(self, db: Session, user_id: int) -> dict:
         """

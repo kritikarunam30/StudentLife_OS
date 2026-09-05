@@ -10,43 +10,6 @@ from app.models.job_dsa_plan import JobDSAPlanProblem
 from app.models.leetcode_state import LeetCodeState
 from app.models.opportunity import Opportunity
 
-DEFAULT_JOB_PLANS = {
-    "Google": [
-        {"title": "Merge Strings Alternately", "title_slug": "merge-strings-alternately", "topic": "Strings", "difficulty": "Easy"},
-        {"title": "Two Sum", "title_slug": "two-sum", "topic": "Arrays & Hashing", "difficulty": "Easy"},
-        {"title": "Container With Most Water", "title_slug": "container-with-most-water", "topic": "Two Pointers", "difficulty": "Medium"},
-        {"title": "3Sum", "title_slug": "3sum", "topic": "Two Pointers", "difficulty": "Medium"},
-        {"title": "Word Search", "title_slug": "word-search", "topic": "Backtracking", "difficulty": "Medium"},
-        {"title": "LRU Cache", "title_slug": "lru-cache", "topic": "Design / Linked List", "difficulty": "Medium"},
-        {"title": "Course Schedule", "title_slug": "course-schedule", "topic": "Graphs", "difficulty": "Medium"},
-        {"title": "Trapping Rain Water", "title_slug": "trapping-rain-water", "topic": "Two Pointers", "difficulty": "Hard"},
-    ],
-    "Razorpay": [
-        {"title": "Reverse Words in a String", "title_slug": "reverse-words-in-a-string", "topic": "Strings", "difficulty": "Medium"},
-        {"title": "Move Zeroes", "title_slug": "move-zeroes", "topic": "Arrays", "difficulty": "Easy"},
-        {"title": "Greatest Common Divisor of Strings", "title_slug": "greatest-common-divisor-of-strings", "topic": "Strings", "difficulty": "Easy"},
-        {"title": "LRU Cache", "title_slug": "lru-cache", "topic": "Design", "difficulty": "Medium"},
-        {"title": "Longest Substring Without Repeating Characters", "title_slug": "longest-substring-without-repeating-characters", "topic": "Sliding Window", "difficulty": "Medium"},
-        {"title": "Valid Parentheses", "title_slug": "valid-parentheses", "topic": "Stack", "difficulty": "Easy"},
-    ],
-    "Microsoft": [
-        {"title": "Reverse Vowels of a String", "title_slug": "reverse-vowels-of-a-string", "topic": "Two Pointers", "difficulty": "Easy"},
-        {"title": "Kids With the Greatest Number of Candies", "title_slug": "kids-with-the-greatest-number-of-candies", "topic": "Arrays", "difficulty": "Easy"},
-        {"title": "Merge Intervals", "title_slug": "merge-intervals", "topic": "Arrays / Sorting", "difficulty": "Medium"},
-        {"title": "Binary Tree Level Order Traversal", "title_slug": "binary-tree-level-order-traversal", "topic": "Trees", "difficulty": "Medium"},
-        {"title": "Number of Islands", "title_slug": "number-of-islands", "topic": "Graphs", "difficulty": "Medium"},
-        {"title": "Search in Rotated Sorted Array", "title_slug": "search-in-rotated-sorted-array", "topic": "Binary Search", "difficulty": "Medium"},
-    ],
-    "Flipkart": [
-        {"title": "Can Place Flowers", "title_slug": "can-place-flowers", "topic": "Greedy / Arrays", "difficulty": "Easy"},
-        {"title": "Product of Array Except Self", "title_slug": "product-of-array-except-self", "topic": "Arrays", "difficulty": "Medium"},
-        {"title": "Group Anagrams", "title_slug": "group-anagrams", "topic": "Hash Table", "difficulty": "Medium"},
-        {"title": "Top K Frequent Elements", "title_slug": "top-k-frequent-elements", "topic": "Heap", "difficulty": "Medium"},
-        {"title": "Coin Change", "title_slug": "coin-change", "topic": "Dynamic Programming", "difficulty": "Medium"},
-    ],
-}
-
-
 class DSAService:
     @staticmethod
     def summary(db: Session, user_id: int) -> dict:
@@ -76,7 +39,7 @@ class DSAService:
         hard_solved = lc_state.hard_solved if lc_state else sum(1 for i in items if i.difficulty.lower() == "hard")
         active_days = lc_state.active_days if lc_state else len(days)
         ranking = lc_state.ranking if lc_state else None
-        username = lc_state.leetcode_username if lc_state else "kriti30_"
+        username = lc_state.leetcode_username if lc_state else None
         last_polled_at = lc_state.last_polled_at.isoformat() if (lc_state and lc_state.last_polled_at) else None
 
         return {
@@ -186,51 +149,14 @@ class DSAService:
 
     @staticmethod
     def ensure_job_applications_and_plans(db: Session, user_id: int) -> list[Application]:
-        """Ensure opportunities have corresponding applications and company-specific DSA plans."""
+        """Return only applications already persisted for this user."""
         opportunities = db.query(Opportunity).filter(Opportunity.user_id == user_id).all()
-        if not opportunities:
-            # Seed standard opportunities if none exist
-            opp_google = Opportunity(user_id=user_id, title="Software Engineer Intern", company="Google", description="SDE Summer Intern position", required_skills="C++, Python, Data Structures, Algorithms", match_score=92.0)
-            opp_ms = Opportunity(user_id=user_id, title="SDE Intern - Platform Team", company="Microsoft", description="Software Engineer Intern", required_skills="C#, Java, DSA, System Design", match_score=88.0)
-            opp_razorpay = Opportunity(user_id=user_id, title="Backend Developer Intern", company="Razorpay", description="Backend Engineering Intern", required_skills="Python, Go, SQL, Distributed Systems", match_score=85.0)
-            opp_flipkart = Opportunity(user_id=user_id, title="Full-Stack Developer Intern", company="Flipkart", description="Full Stack Engineer Intern", required_skills="React, Node.js, DSA", match_score=80.0)
-            db.add_all([opp_google, opp_ms, opp_razorpay, opp_flipkart])
-            db.commit()
-            opportunities = db.query(Opportunity).filter(Opportunity.user_id == user_id).all()
 
         applications = []
         for opp in opportunities:
             app = db.query(Application).filter(Application.user_id == user_id, Application.opportunity_id == opp.id).first()
-            if not app:
-                app = Application(user_id=user_id, opportunity_id=opp.id, status="submitted", notes=f"Application for {opp.company} - {opp.title}")
-                db.add(app)
-                db.commit()
-                db.refresh(app)
-            applications.append(app)
-
-            # Ensure DSA plan problems exist for this application
-            existing_plan = db.query(JobDSAPlanProblem).filter(JobDSAPlanProblem.application_id == app.id).all()
-            if not existing_plan:
-                # Find matching company key
-                company_key = "Google"
-                for key in DEFAULT_JOB_PLANS:
-                    if key.lower() in opp.company.lower():
-                        company_key = key
-                        break
-                
-                plan_items = DEFAULT_JOB_PLANS.get(company_key, DEFAULT_JOB_PLANS["Google"])
-                for item in plan_items:
-                    plan_prob = JobDSAPlanProblem(
-                        application_id=app.id,
-                        company=opp.company,
-                        title=item["title"],
-                        title_slug=item["title_slug"],
-                        topic=item["topic"],
-                        difficulty=item["difficulty"],
-                        notes=f"Target problem for {opp.company} technical interview",
-                    )
-                    db.add(plan_prob)
-                db.commit()
+            if app:
+                applications.append(app)
 
         return applications
 
@@ -244,8 +170,6 @@ class DSAService:
         Get all job applications with DSA preparation metrics calculated dynamically
         against the user's actual solved LeetCode problems.
         """
-        DSAService.ensure_job_applications_and_plans(db, user_id)
-
         # Get solved problems for user (by title slug and normalized title)
         solved_problems = db.query(DSAProblem).filter(DSAProblem.user_id == user_id).all()
         solved_slugs = {p.leetcode_submission_id: p for p in solved_problems if p.leetcode_submission_id}
@@ -266,7 +190,7 @@ class DSAService:
             for item in planned_problems:
                 item_slug = item.title_slug.strip().lower()
                 norm_title = DSAService._normalize_title(item.title)
-                
+
                 # Check if solved either by slug or title match
                 is_solved = (item_slug in solved_slugs) or (norm_title in solved_title_map)
                 if is_solved:
@@ -291,8 +215,6 @@ class DSAService:
     @staticmethod
     def get_job_dsa_plan(db: Session, user_id: int, application_id: int) -> dict:
         """Get detailed DSA preparation plan for a specific job application with solved/remaining breakdowns."""
-        DSAService.ensure_job_applications_and_plans(db, user_id)
-
         app = db.query(Application).filter(Application.id == application_id, Application.user_id == user_id).first()
         if not app:
             return {}
@@ -362,4 +284,4 @@ class DSAService:
             raise ValueError("CSV requires title, topic, difficulty, and solved_on columns")
         items = [DSAProblem(user_id=user_id, title=row["title"].strip(), topic=row["topic"].strip(), difficulty=row["difficulty"].strip(), attempts=int(row.get("attempts") or 1), solved_on=date.fromisoformat(row["solved_on"]), needs_revision=str(row.get("needs_revision", "false")).lower() == "true") for row in rows]
         db.add_all(items); db.commit(); DSAService.sync_progress(db, user_id)
-        return len(items)
+        return len(items)

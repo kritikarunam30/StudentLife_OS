@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -5,6 +6,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.activity_log import ActivityLog
 from app.integrations.telegram_adapter import TelegramAdapter
 from app.models.calendar_event import CalendarEvent
 from app.models.deadline import Deadline
@@ -130,30 +132,21 @@ class BriefingService:
         # 2. Format plain text for notification (clean, human-readable, no emojis)
         alert_section = ("\n\nUpcoming Cutoffs:\n" + "\n".join(f"• {a}" for a in briefing.urgent_alerts)) if briefing.urgent_alerts else ""
         recovery_section = f"\n\nPro-tip: {briefing.recommended_recovery_action}" if briefing.recommended_recovery_action else ""
-        priorities_section = "\n".join(f"• {p}" for p in briefing.top_priorities) if briefing.top_priorities else "• Review active goals and coursework"
+        priorities_section = "\n".join(f"• {p}" for p in briefing.top_priorities)
 
         formatted_message = (
-<<<<<<< HEAD
-            f"🌅 {briefing.greeting}\n\n"
-            + (f"💡 Mindset: \"{briefing.quote_or_motto}\"\n\n" if briefing.quote_or_motto else "")
-            + f"🎯 Top Priorities Today:\n"
-            + ("\n".join(f"• {p}" for p in briefing.top_priorities) or "")
-            + "\n\n"
-            + f"📅 Today's Timeline:\n{briefing.schedule_overview}"
-=======
             f"{briefing.greeting}\n\n"
-            f"Mindset: \"{briefing.quote_or_motto or 'Focus on what matters.'}\"\n\n"
+            f"{f'Mindset: \"{briefing.quote_or_motto}\"\\n\\n' if briefing.quote_or_motto else ''}"
             f"Top Priorities Today:\n"
             f"{priorities_section}\n\n"
             f"Today's Timeline:\n"
             f"{briefing.schedule_overview}"
             f"{alert_section}"
             f"{recovery_section}"
->>>>>>> 3bbb5bababa7202e08d080ffcbd5dd12cf5dca3a
         )
 
         delivery_status = "not_requested"
-        mocked_delivery = True
+        mocked_delivery = False
 
         # 3. Dispatch notification if requested
         if send_notification:
@@ -175,7 +168,7 @@ class BriefingService:
             input_params={"send_notification": send_notification},
             output_result={"priorities_count": len(briefing.top_priorities), "delivery": delivery_status},
         )
-        AuditService.log_user_activity(
+        activity = AuditService.log_user_activity(
             db=db,
             user_id=user_id,
             activity_type="morning_briefing_generated",
@@ -184,17 +177,25 @@ class BriefingService:
                 "workflow_id": workflow_id,
                 "delivery_status": delivery_status,
                 "briefing_preview": briefing.schedule_overview[:120],
+                "briefing": briefing.model_dump(),
+                "formatted_text": formatted_message,
+                "student_name": context["student_name"],
+                "tasks_count": len(context["tasks"]),
+                "events_today_count": len(context["calendar_events"]),
             },
         )
+
+        persisted = db.query(ActivityLog).filter(ActivityLog.id == activity.id).first()
+        persisted_data = json.loads(persisted.metadata_json or "{}") if persisted else {}
 
         return {
             "workflow_id": workflow_id,
             "status": "completed",
-            "student_name": context["student_name"],
-            "briefing": briefing.model_dump(),
-            "formatted_text": formatted_message,
+            "student_name": persisted_data.get("student_name", ""),
+            "briefing": persisted_data.get("briefing", {}),
+            "formatted_text": persisted_data.get("formatted_text", ""),
             "delivery_status": delivery_status,
             "mocked_delivery": mocked_delivery,
-            "tasks_count": len(context["tasks"]),
-            "events_today_count": len(context["calendar_events"]),
+            "tasks_count": persisted_data.get("tasks_count", 0),
+            "events_today_count": persisted_data.get("events_today_count", 0),
         }

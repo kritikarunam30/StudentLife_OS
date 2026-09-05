@@ -34,7 +34,7 @@ export default function BriefingModal({ isOpen, onClose }: Props) {
   }
 
   useEffect(() => {
-    if (isOpen && !briefingData) {
+    if (isOpen) {
       fetchBriefing(false);
     }
   }, [isOpen]);

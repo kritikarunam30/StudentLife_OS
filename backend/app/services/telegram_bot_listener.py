@@ -63,6 +63,16 @@ def is_schedule_shift_request(text: str) -> bool:
     return any(re.search(p, clean) for p in shift_triggers)
 
 
+def is_briefing_request(text: str) -> bool:
+    """Detect natural-language requests for the student's morning briefing."""
+    clean = re.sub(r"[^a-z0-9\s]", " ", text.strip().lower())
+    clean = re.sub(r"\s+", " ", clean)
+    return bool(
+        re.search(r"\b(morning|today|daily)\s+(brief|briefing|summary)\b", clean)
+        or re.search(r"\b(give|get|show|send)\s+(me\s+)?(my\s+)?(morning|daily)\s+(brief|briefing|summary)\b", clean)
+    )
+
+
 class TelegramBotListener:
     """
     Two-way interactive Telegram Bot listener wired directly into OpenClaw and backend tools.
@@ -551,6 +561,12 @@ class TelegramBotListener:
         If the user explicitly asks for an elaboration, detailed explanation, or why a decision was made,
         generates the explanation strictly via Featherless AI (bypassing Gemini).
         """
+        if is_briefing_request(text):
+            briefing = await self.briefing_service.generate_briefing(
+                db, user_id=user_id, send_notification=False
+            )
+            return briefing["formatted_text"]
+
         # 1. On-demand model-decision explanation via Featherless AI
         if is_explanation_request(text):
             ctx = DecisionContextService.get_relevant_decision(user_id, db, query=text)

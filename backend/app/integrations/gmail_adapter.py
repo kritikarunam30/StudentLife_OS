@@ -32,27 +32,8 @@ class GmailAdapter:
     ) -> list[dict[str, Any]]:
         """Fetch recent email messages matching the query."""
         if not self.is_connected():
-            logger.info("Gmail is not connected; returning mock academic messages.")
-            return [
-                {
-                    "id": "mock-msg-001",
-                    "thread_id": "mock-thread-001",
-                    "from": "prof.sharma@university.edu",
-                    "subject": "CS302 Assignment 2 Deadline Extension",
-                    "date": "Today",
-                    "snippet": "Dear class, the database normalization assignment deadline has been extended by 24 hours...",
-                    "body": "Dear class, the database normalization assignment deadline has been extended by 24 hours. Please submit your solutions by tomorrow evening.",
-                },
-                {
-                    "id": "mock-msg-002",
-                    "thread_id": "mock-thread-002",
-                    "from": "careers@university.edu",
-                    "subject": "Google Summer Internship Drive - Applications Open",
-                    "date": "Yesterday",
-                    "snippet": "Google has opened applications for 2027 Summer Software Engineering Internships...",
-                    "body": "Google has opened applications for Summer 2027 Software Engineering Internships. Requirements include Data Structures, Algorithms, and System Design.",
-                },
-            ]
+            logger.info("Gmail is not connected; no inbox records are available.")
+            return []
 
         try:
             res = (
@@ -152,13 +133,8 @@ class GmailAdapter:
         Send an existing draft after human approval has been confirmed.
         """
         if not self.is_connected():
-            logger.info("Gmail is not connected; dispatching mock send for draft %s", draft_id)
-            return {
-                "status": "success",
-                "message_id": f"mock-msg-{draft_id}",
-                "thread_id": "mock-thread",
-                "mocked": True,
-            }
+            logger.info("Gmail is not connected; cannot send draft %s", draft_id)
+            return {"status": "failed", "error": "Gmail is not connected"}
 
         try:
             sent = self.service.users().drafts().send(userId="me", body={"id": draft_id}).execute()

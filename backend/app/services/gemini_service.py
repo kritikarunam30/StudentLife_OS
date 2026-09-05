@@ -90,13 +90,13 @@ class GeminiService:
             if t.get("title") and not any(fake in t.get("title", "").lower() for fake in ["dbms", "database normalization", "operating systems lecture"])
         ][:3]
         if not priorities:
-            priorities = ["Review active goals and coursework", "Dedicated problem-solving practice session"]
+            priorities = []
 
         if calendar_events:
             ev_desc = ", ".join(f"{e.get('title')}" for e in calendar_events[:3] if e.get("title"))
             schedule_str = f"Events today: {ev_desc}."
         else:
-            schedule_str = "Your schedule is clear today with open windows for focused work."
+            schedule_str = ""
 
         urgent_alerts = []
         for t in tasks:
@@ -110,8 +110,8 @@ class GeminiService:
                     break
 
         return MorningBriefingResult(
-            greeting=f"Good morning, {student_name or 'Student'}!",
-            quote_or_motto="Focus on consistent progress and what matters most today.",
+            greeting=f"Good morning, {student_name}!" if student_name else "Good morning!",
+            quote_or_motto=None,
             top_priorities=priorities,
             schedule_overview=schedule_str,
             urgent_alerts=urgent_alerts,
@@ -126,26 +126,6 @@ class GeminiService:
         calendar_events: list[dict[str, Any]],
         urgent_deadlines: list[dict[str, Any]] | None = None,
     ) -> MorningBriefingResult:
-<<<<<<< HEAD
-        """Build a briefing strictly from records already present in the workspace."""
-        deadlines = urgent_deadlines or []
-        schedule_items = [
-            f"{event['title']} ({event['starts_at']} - {event['ends_at']})"
-            for event in calendar_events
-        ]
-        return MorningBriefingResult(
-            greeting=f"Good morning, {student_name}!" if student_name else "Good morning!",
-            quote_or_motto=None,
-            top_priorities=[task["title"] for task in tasks if task.get("title")],
-            schedule_overview="; ".join(schedule_items),
-            urgent_alerts=[
-                f"{deadline['title']} (due {deadline['due_at']})"
-                for deadline in deadlines
-                if deadline.get("title") and deadline.get("due_at")
-            ],
-            recommended_recovery_action=None,
-        )
-=======
         """Generate a focused morning briefing summary for the day."""
         profile_context = build_minimal_profile_context(profile)
         prompt = build_morning_briefing_prompt(student_name, profile_context, tasks, calendar_events)
@@ -165,7 +145,7 @@ class GeminiService:
                     t.get("title", "Task") for t in tasks
                     if not any(fake in t.get("title", "").lower() for fake in ["dbms", "database normalization"])
                 ][:3]
-            res.top_priorities = filtered_priorities or ["Review active goals and coursework"]
+            res.top_priorities = filtered_priorities
 
             # Filter hallucinated urgent alerts
             filtered_alerts = [
@@ -177,7 +157,6 @@ class GeminiService:
         except Exception as err:
             logger.warning("Morning briefing generation fallback to grounded database context: %s", err)
             return self._build_grounded_briefing_fallback(student_name, tasks, calendar_events)
->>>>>>> 3bbb5bababa7202e08d080ffcbd5dd12cf5dca3a
 
     async def classify_content(
         self,

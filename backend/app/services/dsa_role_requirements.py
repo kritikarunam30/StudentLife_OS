@@ -78,6 +78,55 @@ GENERIC_DEFAULT_TOPICS = [
     {"topic": "Two Pointers", "weight": 1.0, "target_problems": 3},
 ]
 
+NON_TECHNICAL_ROLE_TERMS = (
+    "chef", "cook", "culinary", "kitchen", "restaurant", "hospitality",
+    "marketing", "finance", "accountant", "accounting", "sales", "recruiter",
+    "human resources", "hr manager", "legal", "lawyer", "nurse", "teacher",
+)
+
+TECHNICAL_ROLE_TERMS = (
+    "software", "developer", "programmer", "backend", "back-end", "frontend",
+    "front-end", "full stack", "full-stack", "web developer", "data analyst",
+    "data scientist", "machine learning", "ml engineer", "ai engineer", "devops",
+    "sre", "qa automation", "test automation", "api engineer", "database engineer",
+)
+
+TECHNICAL_SKILL_TERMS = (
+    "python", "java", "javascript", "typescript", "c++", "c#", "golang", "rust",
+    "sql", "api", "database", "programming", "coding", "software development",
+    "algorithms", "data structures", "react", "node.js", "docker", "kubernetes",
+)
+
+
+def is_technical_job(
+    role_title: str,
+    job_description: str,
+    required_skills: list[str] | None = None,
+    company: str | None = None,
+) -> bool:
+    """Require evidence in the posting; a technical student profile is not evidence."""
+    title = (role_title or "").lower()
+    text = " ".join((company or "", job_description or "", *(required_skills or []))).lower()
+    if any(term in title for term in NON_TECHNICAL_ROLE_TERMS):
+        return False
+    has_technical_evidence = any(term in title for term in TECHNICAL_ROLE_TERMS) or any(term in text for term in TECHNICAL_SKILL_TERMS)
+    has_nontechnical_context = any(term in text for term in NON_TECHNICAL_ROLE_TERMS)
+    return has_technical_evidence and not (has_nontechnical_context and not any(term in text for term in TECHNICAL_SKILL_TERMS))
+
+
+def has_role_context_mismatch(
+    role_title: str,
+    company: str | None,
+    job_description: str,
+    required_skills: list[str] | None = None,
+) -> bool:
+    """Reject role matching unless the posting itself provides technical evidence."""
+    text = " ".join((company or "", job_description or "", *(required_skills or []))).lower()
+    return not is_technical_job(role_title, job_description, required_skills, company) or (
+        any(term in text for term in NON_TECHNICAL_ROLE_TERMS)
+        and not any(term in text for term in TECHNICAL_SKILL_TERMS)
+    )
+
 
 def match_role_tab(role_title: str) -> tuple[str, str, list[dict[str, Any]]]:
     """
@@ -87,6 +136,9 @@ def match_role_tab(role_title: str) -> tuple[str, str, list[dict[str, Any]]]:
         where match_type is 'exact', 'fuzzy', or 'inferred'.
     """
     cleaned = re.sub(r"[^a-zA-Z0-9\s/]", " ", role_title).strip().lower()
+
+    if any(term in cleaned for term in NON_TECHNICAL_ROLE_TERMS):
+        return "Non-technical Role", "not_applicable", []
 
     # 1. Exact or alias match
     for role_name, data in ROLE_REQUIREMENTS_TABS.items():
